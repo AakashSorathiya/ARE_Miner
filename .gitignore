@@ -1,1 +1,5 @@
 server/__pycache__
+model_codes/.vector_cache
+model_codes/model
+model_codes/__pycache__
+model_architecture/__pycache__
