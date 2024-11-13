@@ -42,8 +42,9 @@ def extract_requirements(csv_file: UploadFile):
     
     df = pd.read_csv(csv_file.file)
     print(f'df created, size - {len(df)}')
-    processExtractRequirementRequest(df)
-    return
+    
+    response = processExtractRequirementRequest(df)
+    return response
 
 if __name__ == "__main__":
     uvicorn.run(API, host="0.0.0.0", port=8000, reload=True)
