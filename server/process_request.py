@@ -8,10 +8,14 @@ import re
 from bs4 import BeautifulSoup
 from collections import defaultdict
 import json
+import stanza
 
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 model = get_model()
+model.to(device)
 word_to_ix, tag_to_ix = get_vocabs()
 ix_to_tag = {ix: tag for tag, ix in tag_to_ix.items()}
+nlp_pipeline = stanza.Pipeline(lang='en', processors='tokenize,mwt,pos,lemma,sentiment')
 
 
 def processEdaRequest(dataframe: pd.DataFrame):
@@ -60,11 +64,11 @@ def processExtractRequirementRequest(dataframe):
         raise HTTPException(status_code=400, detail='Invalid file format. Required columns (App, Review, and Date) are missing.')
     
     # preprocess data for training
-    all_sentences, all_sentence_tensors, all_tokens = _preprocessData(dataframe)
+    all_clean_reviews, all_review_tensors, all_tokens = _preprocessData(dataframe)
     # get all predictions
-    all_predictions = _predictRequirements(all_sentence_tensors)
+    all_predictions = _predictRequirements(all_review_tensors)
     # convert tags to requirements and corresponsing sentiments
-    all_requirements_sentiments = _extractRequirementsAndSentiments(all_sentences, all_tokens, all_predictions)
+    all_requirements_sentiments = _extractRequirementsAndSentiments(all_clean_reviews, all_tokens, all_predictions)
 
     # get statistics
     dataframe = pd.concat([dataframe, pd.DataFrame({'requirements': all_requirements_sentiments})], axis=1)
@@ -72,76 +76,94 @@ def processExtractRequirementRequest(dataframe):
     statistics = _getRequirementsStatistics(dataframe)
     dataframe = dataframe.drop('pd_date', axis=1)
 
-    response = {'records': json.loads(dataframe.to_json(orient='index'))}
-    response.update(statistics)
+    response = statistics
+    response.update({'records': json.loads(dataframe.to_json(orient='index'))})
     return response
 
 def _getWordCount(review):
     return len(str(review).split())
 
 def _getSentiment(review):
-    score = TextBlob(review).sentiment.polarity
+    doc = nlp_pipeline(review)
+    # score = TextBlob(review).sentiment.polarity
+    score = doc.sentences[0].sentiment
     if score == 0:
-        return 'neutral'
-    elif score>0:
-        return 'positive'
-    else:
         return 'negative'
+    elif score == 1:
+        return 'neutral'
+    else:
+        return 'positive'
 
 def _preprocessData(dataframe: pd.DataFrame):
     # return sentences (for sentiments) and sentences tensors (for model)
-    all_sentences = []
-    all_sentence_tensors = []
+    all_clean_reviews = []
+    all_review_tensors = []
     all_tokens = []
     reviews = dataframe['Review'].to_list()
     for review in reviews:
-        sentences_for_review = sent_tokenize(review)
-        sentence_tensors_for_review = []
-        review_tokens = []
-        for sentence in sentences_for_review:
-            tokens = _cleanContent(sentence)
-            sentence_idx = [word_to_ix.get(word, word_to_ix['<UNK>']) for word in tokens]
-            sentence_tensor = torch.tensor([sentence_idx], dtype=torch.long)
-            sentence_tensors_for_review.append(sentence_tensor)
-            review_tokens.append(tokens)
-        all_sentences.append(sentences_for_review)
-        all_sentence_tensors.append(sentence_tensors_for_review)
-        all_tokens.append(review_tokens)
+        # sentences_for_review = sent_tokenize(review)
+        # sentence_tensors_for_review = []
+        # review_tokens = []
+        # for sentence in sentences_for_review:
+        #     tokens = _cleanContent(sentence)
+        #     sentence_idx = [word_to_ix.get(word, word_to_ix['<UNK>']) for word in tokens]
+        #     sentence_tensor = torch.tensor([sentence_idx], dtype=torch.long)
+        #     sentence_tensors_for_review.append(sentence_tensor)
+        #     review_tokens.append(tokens)
+        # all_sentences.append(sentences_for_review)
+        # all_sentence_tensors.append(sentence_tensors_for_review)
+        # all_tokens.append(review_tokens)
+        clean_review, tokens = _cleanContent(review)
+        review_idx = [word_to_ix.get(word, word_to_ix['<UNK>']) for word in tokens]
+        review_tensor = torch.tensor([review_idx], dtype=torch.long)
+        all_tokens.append(tokens)
+        all_clean_reviews.append(clean_review)
+        all_review_tensors.append(review_tensor)
     
-    return all_sentences, all_sentence_tensors, all_tokens
+    return all_clean_reviews, all_review_tensors, all_tokens
 
 def _cleanContent(sentence):
+    # print(sentence)
     sentence = BeautifulSoup(str(sentence), features='lxml').get_text()
     sentence = re.sub("[^a-zA-Z]", " ", sentence)
     sentence = sentence.lower()
-    # print(sentence)
-    return sentence.split()
+    clean_review = ' '.join(sentence.split())
+    tokens = [token.lemma for token in nlp_pipeline(clean_review).sentences[0].words]
+    return clean_review, tokens
 
-def _predictRequirements(all_sentence_tensors):
+def _predictRequirements(all_review_tensors):
     # return predicted BIO tags
     model.eval()
     all_predictions = []
-    for sentence_tensors_for_review in all_sentence_tensors:
-        review_predictions = []
-        for sentence_tensor in sentence_tensors_for_review:
-            emissions = model(sentence_tensor)
-            pred_tags_ix = model.decode(emissions)
-            pred_tags = [ix_to_tag[t] for t in pred_tags_ix[0]]
-            review_predictions.append(pred_tags)
-        all_predictions.append(review_predictions)
+    for review_tensor in all_review_tensors:
+        # review_predictions = []
+        # for sentence_tensor in sentence_tensors_for_review:
+        #     sentence_tensor = sentence_tensor.to(device)
+        #     emissions = model(sentence_tensor)
+        #     pred_tags_ix = model.decode(emissions)
+        #     pred_tags = [ix_to_tag[t] for t in pred_tags_ix[0]]
+        #     review_predictions.append(pred_tags)
+        review_tensor = review_tensor.to(device)
+        emissions = model(review_tensor)
+        pred_tags_ix = model.decode(emissions)
+        pred_tags = [ix_to_tag[t] for t in pred_tags_ix[0]]
+        all_predictions.append(pred_tags)
 
     return all_predictions
 
-def _extractRequirementsAndSentiments(all_sentences, all_tokens, all_predictions):
+def _extractRequirementsAndSentiments(all_clean_reviews, all_tokens, all_predictions):
     all_requirements_sentiments = []
-    for i, review_sentences in enumerate(all_sentences):
+    for i, clean_review in enumerate(all_clean_reviews):
         review_requirements_sentiments = []
-        for j, sentence in enumerate(review_sentences):
-            tokens, tags = all_tokens[i][j], all_predictions[i][j]
-            requirements = _tagToRequirements(tokens, tags)
-            sentiment = _getSentiment(sentence)
-            for req in requirements:
-                review_requirements_sentiments.append({'requirement': req, 'sentiment': sentiment})
+        # for j, sentence in enumerate(review_sentences):
+        #     tokens, tags = all_tokens[i][j], all_predictions[i][j]
+        #     requirements = _tagToRequirements(tokens, tags)
+        #     sentiment = _getSentiment(sentence)
+        tokens, tags = all_tokens[i], all_predictions[i]
+        requirements = _tagToRequirements(tokens, tags)
+        sentiment = _getSentiment(clean_review)
+        for req in requirements:
+            review_requirements_sentiments.append({'requirement': req, 'sentiment': sentiment})
         all_requirements_sentiments.append(review_requirements_sentiments)
     return all_requirements_sentiments
 

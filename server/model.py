@@ -15,8 +15,8 @@ def get_model():
     attention = SelfAttention(HIDDEN_DIM)
     # attention.load_state_dict(torch.load('model_codes/model/attention_dict.pth'))
     model = Seq2SeqModel(TAGSET_SIZE, encoder, decoder, attention)
-    # model.load_state_dict(torch.load('model_codes/model/model_dict.pth'))
-    model = torch.load('model_codes/model/model.pth')
+    model.load_state_dict(torch.load('model_codes/model/model_dict.pth'))
+    # model = torch.load('model_codes/model/model.pth')
     model.eval()
     return model
 

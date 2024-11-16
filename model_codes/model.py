@@ -4,12 +4,15 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 from torchtext.vocab import GloVe
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import precision_score, recall_score, f1_score
 import ast
+import os
+import json
 from model_architecture import Seq2SeqModel, BiLSTMEncoder, LSTMDecoder, SelfAttention
 
-truth_dataset = pd.read_csv('datafiles/true_tags.csv')
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+print(device)
+
+truth_dataset = pd.read_csv('datafiles/tfrex_true_tags.csv')
 truth_dataset.info()
 
 truth_dataset['clean_content'] = truth_dataset['clean_content'].apply(ast.literal_eval)
@@ -60,6 +63,7 @@ encoder = BiLSTMEncoder(EMBEDDING_DIM, HIDDEN_DIM, glove_embeddings)
 decoder = LSTMDecoder(HIDDEN_DIM, TAGSET_SIZE)
 attention = SelfAttention(HIDDEN_DIM)
 model = Seq2SeqModel(TAGSET_SIZE, encoder, decoder, attention)
+model.to(device)
 
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
@@ -69,6 +73,9 @@ def train_model(model, train_loader, optimizer, epochs=10):
         print(f'Epoch: {epoch}')
         total_loss = 0
         for sentences_batch, tags_batch in train_loader:
+            sentences_batch = sentences_batch.to(device)
+            tags_batch = tags_batch.to(device)
+
             mask = (sentences_batch != 0)
             optimizer.zero_grad()
             
@@ -81,7 +88,7 @@ def train_model(model, train_loader, optimizer, epochs=10):
             total_loss += loss.item()
         print(f"Train Loss: {total_loss / len(train_loader)}")
     
-train_model(model, train_loader, optimizer, 15)
+train_model(model, train_loader, optimizer, 10)
 
 torch.save(model, 'model_codes/model/model.pth')
 torch.save(glove_embeddings, 'model_codes/model/embeddings.pth')
@@ -89,3 +96,9 @@ torch.save(model.state_dict(), 'model_codes/model/model_dict.pth')
 torch.save(encoder.state_dict(), 'model_codes/model/encoder_dict.pth')
 torch.save(decoder.state_dict(), 'model_codes/model/decoder_dict.pth')
 torch.save(attention.state_dict(), 'model_codes/model/attention_dict.pth')
+
+with open(os.path.join('model_codes/model/', 'vocabs.json'), 'w') as f:
+    json.dump({
+        'input_vocab': word_to_ix,
+        'target_vocab': tag_to_ix
+    }, f)
