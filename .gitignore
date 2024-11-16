@@ -1,5 +1,8 @@
 server/__pycache__
 model_codes/.vector_cache
-model_codes/model
+model_codes/model/attention_dict.pth
+model_codes/model/encoder_dict.pth
+model_codes/model/decoder_dict.pth
+model_codes/model/model.joblib
 model_codes/__pycache__
 model_architecture/__pycache__
