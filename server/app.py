@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 from server.process_request import processEdaRequest, processExtractRequirementRequest
 import uvicorn
 import pandas as pd
+import time
 
 # sorting based on number of words
 # filter based on sentiments and range of number of words
@@ -35,6 +36,7 @@ def perform_eda(csv_file: UploadFile):
 # format of output csv file: App,Review,Requirements,Sentiments
 @API.post('/extract_requirements')
 def extract_requirements(csv_file: UploadFile):
+    # start = time.process_time()
     filename = csv_file.filename
     file_format = filename.split('.')[-1]
     if not file_format=='csv':
@@ -44,6 +46,7 @@ def extract_requirements(csv_file: UploadFile):
     print(f'df created, size - {len(df)}')
     
     response = processExtractRequirementRequest(df)
+    # print(f'Time to complete the request: {time.process_time()-start}')
     return response
 
 if __name__ == "__main__":
