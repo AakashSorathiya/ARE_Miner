@@ -12,7 +12,7 @@ from model_architecture import Seq2SeqModel, BiLSTMEncoder, LSTMDecoder, SelfAtt
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 print(device)
 
-truth_dataset = pd.read_csv('datafiles/tfrex_true_tags.csv')
+truth_dataset = pd.read_csv('datafiles/tfrex_true_tags_modified.csv')
 truth_dataset.info()
 
 truth_dataset['clean_content'] = truth_dataset['clean_content'].apply(ast.literal_eval)
@@ -25,7 +25,7 @@ all_tags = truth_dataset['tags'].to_list()
 word_to_ix = {word: i+1 for i, word in enumerate(set([w for s in all_sentences for w in s]))}
 word_to_ix['<PAD>']=0
 word_to_ix['<UNK>']=len(word_to_ix)
-tag_to_ix = {'<PAD>': 0, 'B': 1, 'I': 2, 'O': 3}
+tag_to_ix = {'<PAD>': 0, 'B-feature': 1, 'I-feature': 2, 'O': 3}
 ix_to_tag = {ix: tag for tag, ix in tag_to_ix.items()}
 
 BATCH_SIZE = 32
