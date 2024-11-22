@@ -1,8 +1,8 @@
 version: 0.0
 os: linux
 files:
- - source: /
-   destination: /tmp
+ - source: .
+   destination: /home/ubuntu/ARE_Miner
    overwrite: true
 file_exists_behavior: OVERWRITE
 hooks:
