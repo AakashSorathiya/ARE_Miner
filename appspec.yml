@@ -1,16 +1,16 @@
 version: 0.0
 os: linux
 files:
- - source: .
-   destination: /home/ubuntu/ARE_Miner
+ - source: /
+   destination: /tmp
    overwrite: true
 file_exists_behavior: OVERWRITE
 hooks:
   AfterInstall:
-   - location: /home/ubuntu/ARE_Miner/scripts/install_app_dependencies
+   - location: scripts/install_app_dependencies
      timeout: 300
      runas: root
   ApplicationStart:
-   - location: /home/ubuntu/ARE_Miner/scripts/start_server
+   - location: scripts/start_server
      timeout: 300
      runas: root
