@@ -2,7 +2,7 @@ version: 0.0
 os: linux
 files:
  - source: /
-   destination: /home/ubuntu/ARE_Miner
+   destination: /var/www/are-miner
    overwrite: true
 file_exists_behavior: OVERWRITE
 hooks:
