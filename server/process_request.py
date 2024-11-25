@@ -1,7 +1,7 @@
 import pandas as pd
 from fastapi import HTTPException
 from textblob import TextBlob
-from server.model import get_model, get_vocabs
+from server.model import get_model, get_vocabs, model_type, device
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from nltk.tokenize import sent_tokenize
@@ -17,9 +17,7 @@ import time
 import spacy
 # import collections
 
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 model = get_model()
-model.to(device)
 word_to_ix, tag_to_ix = get_vocabs()
 ix_to_tag = {ix: tag for tag, ix in tag_to_ix.items()}
 # nlp_pipeline = stanza.Pipeline(lang='en', processors='tokenize,mwt,pos,lemma,sentiment')
@@ -68,12 +66,28 @@ def processEdaRequest(dataframe: pd.DataFrame):
     return response
 
 def processExtractRequirementRequest(dataframe):
-    sentence_level=True
     # data validation
     print(dataframe.columns.values)
     if not set(['App', 'Review', 'Date']).issubset(dataframe.columns.values):
         raise HTTPException(status_code=400, detail='Invalid file format. Required columns (App, Review, and Date) are missing.')
 
+    if model_type=='baseline':
+        all_requirements_sentiments = _inferenceBaseline(dataframe)
+    else:
+        all_requirements_sentiments = _inferenceNewModel(dataframe)
+
+    # get statistics
+    dataframe = pd.concat([dataframe, pd.DataFrame({'requirements': all_requirements_sentiments})], axis=1)
+    dataframe['pd_date'] = pd.to_datetime(dataframe['Date'])
+    statistics = _getRequirementsStatistics(dataframe)
+    dataframe = dataframe.drop('pd_date', axis=1)
+
+    response = statistics
+    response.update({'records': json.loads(dataframe.to_json(orient='index'))})
+    return response
+
+def _inferenceNewModel(dataframe):
+    sentence_level=True
     if sentence_level:
         # preprocess data for training
         all_sentences, all_sentence_tensors, all_tokens = _preprocessDataSentenceLevel(dataframe)
@@ -91,16 +105,21 @@ def processExtractRequirementRequest(dataframe):
         all_predictions = _predictRequirements(data_loader)
         # convert tags to requirements and corresponsing sentiments
         all_requirements_sentiments = _extractRequirementsAndSentiments(all_clean_reviews, all_tokens, all_predictions)
+    
+    return all_requirements_sentiments
 
-    # get statistics
-    dataframe = pd.concat([dataframe, pd.DataFrame({'requirements': all_requirements_sentiments})], axis=1)
-    dataframe['pd_date'] = pd.to_datetime(dataframe['Date'])
-    statistics = _getRequirementsStatistics(dataframe)
-    dataframe = dataframe.drop('pd_date', axis=1)
+def _inferenceBaseline(dataframe):
+    all_requirements_sentiments = []
 
-    response = statistics
-    response.update({'records': json.loads(dataframe.to_json(orient='index'))})
-    return response
+    for review in dataframe['Review'].to_list():
+        review_requirements_sentiments = []
+        sentiment = _getSentiment(review)
+        predictions = model(review)
+        for entity in predictions:
+            review_requirements_sentiments.append({'requirement': entity['word'], 'sentiment': sentiment})
+        all_requirements_sentiments.append(review_requirements_sentiments)
+
+    return all_requirements_sentiments
 
 def _getWordCount(review):
     return len(str(review).split())
@@ -204,7 +223,11 @@ def _predictRequirementsSentenceLevel(all_sentence_tensors):
         for sentence_tensor in sentence_tensors_for_review:
             sentence_tensor = sentence_tensor.to(device)
             emissions = model(sentence_tensor)
+            # print(emissions)
             pred_tags_ix = model.decode(emissions)
+            # confidence = -model.loss(emissions, torch.tensor(pred_tags_ix).to(device))
+            # print(confidence)
+            # print(pred_tags_ix)
             pred_tags = [ix_to_tag[t] for t in pred_tags_ix[0]]
             review_predictions.append(pred_tags)
         all_predictions.append(review_predictions)
@@ -215,10 +238,6 @@ def _extractRequirementsAndSentiments(all_clean_reviews, all_tokens, all_predict
     all_requirements_sentiments = []
     for i, clean_review in enumerate(all_clean_reviews):
         review_requirements_sentiments = []
-        # for j, sentence in enumerate(review_sentences):
-        #     tokens, tags = all_tokens[i][j], all_predictions[i][j]
-        #     requirements = _tagToRequirements(tokens, tags)
-        #     sentiment = _getSentiment(sentence)
         tokens, tags = all_tokens[i], all_predictions[i]
         requirements = _tagToRequirements(tokens, tags)
         sentiment = _getSentiment(clean_review)
