@@ -4,7 +4,9 @@ import os
 from model_architecture import Seq2SeqModel, LSTMDecoder, BiLSTMEncoder, SelfAttention
 from transformers import pipeline
 
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+# device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+device = torch.device("cpu")
+
 model_type = 'new_model'
 
 def get_model():
@@ -23,9 +25,9 @@ def get_model():
         attention = SelfAttention(HIDDEN_DIM)
         # attention.load_state_dict(torch.load('model_codes/model/attention_dict.pth'))
         model = Seq2SeqModel(TAGSET_SIZE, encoder, decoder, attention)
-        model.load_state_dict(torch.load('model_codes/model/model_dict.pth'))
+        model.load_state_dict(torch.load('model_codes/model/model_dict.pth',  map_location=torch.device(device)))
         # model = torch.load('model_codes/model/model.pth')
-        model.to(device)
+        # model.to(device)
         model.eval()
     return model
 
