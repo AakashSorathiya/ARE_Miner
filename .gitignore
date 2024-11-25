@@ -6,3 +6,4 @@ model_codes/model/decoder_dict.pth
 model_codes/model/model.joblib
 model_codes/__pycache__
 model_architecture/__pycache__
+.pytest_cache
