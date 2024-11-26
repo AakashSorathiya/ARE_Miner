@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from server.process_request import processEdaRequest, processExtractRequirementRequest
 import uvicorn
 import pandas as pd
@@ -11,6 +12,7 @@ import time
 # distribution of requirements over number of reviews, number of requirements for each app, sentiment distribution for requirements, distribution over time, number of words for requirements
 
 API = FastAPI()
+API.add_middleware(HTTPSRedirectMiddleware)
 
 # /eda - input: csv, output: csv
 # format of input csv file: App,Review,Date
@@ -50,4 +52,4 @@ def extract_requirements(csv_file: UploadFile):
     return response
 
 if __name__ == "__main__":
-    uvicorn.run(API, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(API, host="0.0.0.0", port=80, reload=True, ssl_keyfile='../key.pem', ssl_certfile='../cert.pem')
