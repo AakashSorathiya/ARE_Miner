@@ -3,4 +3,4 @@
 cd /home/ubuntu/ARE_Miner
 python3 -m venv environment
 source environment/bin/activate
-sudo pip install -r requirements.txt
+sudo environment/bin/pip install -r requirements.txt
