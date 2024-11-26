@@ -12,7 +12,7 @@ import time
 # distribution of requirements over number of reviews, number of requirements for each app, sentiment distribution for requirements, distribution over time, number of words for requirements
 
 API = FastAPI()
-API.add_middleware(HTTPSRedirectMiddleware)
+# API.add_middleware(HTTPSRedirectMiddleware)
 
 # /eda - input: csv, output: csv
 # format of input csv file: App,Review,Date
