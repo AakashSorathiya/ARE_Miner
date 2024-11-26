@@ -1,6 +1,6 @@
 #!/bin/bash
-# sudo pip3 install virtualenv
+sudo pip3 install virtualenv
 cd /home/ubuntu/ARE_Miner
-python3 -m venv environment
+virtualenv environment
 source environment/bin/activate
-sudo environment/bin/pip install -r requirements.txt
+sudo pip3 install -r requirements.txt
