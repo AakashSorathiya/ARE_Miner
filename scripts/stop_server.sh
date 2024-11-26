@@ -1,2 +1,3 @@
 #!/bin/bash
-supervisorctl stop fastapiapp
+sudo supervisorctl stop fastapiapp
+sudo kill -s SIGTERM $(sudo supervisorctl pid)
