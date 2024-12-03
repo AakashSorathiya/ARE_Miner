@@ -7,7 +7,7 @@ from transformers import pipeline
 # device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 device = torch.device("cpu")
 
-model_type = 'new_model'
+model_type = 'baseline'
 
 def get_model():
     if model_type=='baseline':
