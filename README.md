@@ -1,6 +1,6 @@
 ## ARE_Miner: A web based automated tool to extract software requirements from app reviews.
 
-####
+###
 The source code for the front end application can be found [here](https://github.com/jaymoz/are-miner-frontend)
 
 ### Introduction
